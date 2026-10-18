@@ -93,3 +93,28 @@ CREATE TABLE IF NOT EXISTS sys_log (
   cost_ms     INT,
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB COMMENT='操作日志';
+
+-- 表7：自愈事件
+-- 状态流转：DETECTED(巡检发现) -> DIAGNOSED(已诊断) -> PROPOSED(已给出处置方案)
+--           -> EXECUTED(人工确认并执行) -> VERIFIED(复检通过) / FAILED(复检未通过)
+--           -> IGNORED(人工忽略)
+CREATE TABLE IF NOT EXISTS self_heal_event (
+  id            BIGINT PRIMARY KEY AUTO_INCREMENT,
+  rule_key      VARCHAR(50)  NOT NULL COMMENT '触发的巡检规则，如 DISK_HIGH',
+  title         VARCHAR(200) NOT NULL COMMENT '事件标题',
+  severity      VARCHAR(20)  NOT NULL DEFAULT 'MEDIUM' COMMENT 'LOW/MEDIUM/HIGH',
+  metric_name   VARCHAR(50)            COMMENT '指标名，如 disk_usage',
+  metric_value  DOUBLE                 COMMENT '实测值',
+  threshold     DOUBLE                 COMMENT '阈值',
+  status        VARCHAR(20)  NOT NULL DEFAULT 'DETECTED' COMMENT '见上方状态流转',
+  diagnosis     TEXT                   COMMENT 'RAG 诊断结果(JSON)',
+  action_key    VARCHAR(50)            COMMENT '选中的白名单动作',
+  action_plan   TEXT                   COMMENT 'dry-run 预览：执行前告诉人将要做什么',
+  action_result TEXT                   COMMENT '执行结果',
+  operator      VARCHAR(50)            COMMENT '审批/执行人',
+  detect_time   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  execute_time  DATETIME,
+  update_time   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_heal_status (status),
+  KEY idx_heal_rule (rule_key)
+) ENGINE=InnoDB COMMENT='自愈事件';

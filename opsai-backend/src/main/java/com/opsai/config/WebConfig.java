@@ -109,6 +109,7 @@ public class WebConfig implements WebMvcConfigurer {
                         || uri.startsWith("/api/tickets")
                         || uri.startsWith("/api/stats")
                         || uri.startsWith("/api/logs")
+                        || uri.startsWith("/api/selfheal")
                         || uri.startsWith("/api/diagnose");
                 if (adminData) {
                     write(response, 403, "当前账号无权查看运维管理数据");
@@ -117,10 +118,12 @@ public class WebConfig implements WebMvcConfigurer {
             }
 
             // ---------- 运维管理人员的权限边界 ----------
-            // 知识的审核 / 重建向量 / 删除：仅管理员
+            // 知识的审核 / 重建向量 / 删除：仅管理员。
+            // 自愈的「执行处置动作」：仅管理员——这是全系统破坏力最大的操作，必须卡死在这一层。
             boolean adminOnly = (uri.contains("/kb/document/")
                     && (uri.endsWith("/audit") || uri.endsWith("/reindex")))
-                    || ("DELETE".equalsIgnoreCase(method) && uri.startsWith("/api/kb"));
+                    || ("DELETE".equalsIgnoreCase(method) && uri.startsWith("/api/kb"))
+                    || (uri.startsWith("/api/selfheal") && uri.endsWith("/execute"));
             if (adminOnly && !"admin".equals(role)) {
                 write(response, 403, "该操作需要管理员权限");
                 return false;

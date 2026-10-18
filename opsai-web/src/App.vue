@@ -12,6 +12,7 @@ const menus = [
   { path: '/knowledge', title: '知识库管理', icon: 'Collection' },
   { path: '/cases', title: '案例与处理单', icon: 'Document' },
   { path: '/stats', title: '统计分析', icon: 'TrendCharts' },
+  { path: '/selfheal', title: '自愈中心', icon: 'MagicStick' },
   { path: '/logs', title: '操作日志', icon: 'Tickets' }
 ]
 

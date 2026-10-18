@@ -89,3 +89,23 @@ export const assistApi = {
 export const logApi = {
   list: (params) => api.get('/logs', { params })
 }
+
+/* ---------- 运维管理：自愈 ---------- */
+export const selfHealApi = {
+  /** 健康指标概览 */
+  metrics: () => api.get('/selfheal/metrics'),
+  /** 事件列表 */
+  events: () => api.get('/selfheal/events'),
+  /** 手动巡检（只采集指标、建事件，不动任何东西） */
+  scan: () => api.post('/selfheal/scan'),
+  /** AI 分析原因（慢，约 20~40 秒） */
+  diagnose: (id) => api.post(`/selfheal/events/${id}/diagnose`),
+  /** 重新生成 dry-run 预览 */
+  propose: (id) => api.post(`/selfheal/events/${id}/propose`),
+  /** 执行处置动作（仅管理员） */
+  execute: (id) => api.post(`/selfheal/events/${id}/execute`),
+  /** 忽略事件 */
+  ignore: (id) => api.post(`/selfheal/events/${id}/ignore`),
+  /** 系统具备的白名单动作 */
+  actions: () => api.get('/selfheal/actions')
+}

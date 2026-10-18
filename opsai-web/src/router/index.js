@@ -47,6 +47,12 @@ const routes = [
     name: 'logs',
     component: () => import('../views/Logs.vue'),
     meta: { title: '操作日志', icon: 'Tickets', roles: ['admin', 'engineer'] }
+  },
+  {
+    path: '/selfheal',
+    name: 'selfheal',
+    component: () => import('../views/SelfHeal.vue'),
+    meta: { title: '自愈中心', icon: 'MagicStick', roles: ['admin', 'engineer'] }
   }
 ]
 

@@ -1,0 +1,13 @@
+# 后端构建上下文（compose 里的 context 是 opsai 目录）
+# 这些目录带进镜像只会拖慢构建，还会覆盖容器内的配置
+opsai-backend/target
+opsai-backend/.mvn
+opsai-backend/data
+opsai-web/node_modules
+opsai-web/dist
+.m2repo
+.npm-cache
+knowledge
+scripts
+deploy/mysql
+*.log

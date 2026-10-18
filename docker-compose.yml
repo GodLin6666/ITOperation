@@ -1,0 +1,110 @@
+# ============================================================
+# 一键启动整套系统：docker compose up -d --build
+#
+# 起来之后：
+#   前端（系统入口）  http://localhost:8000
+#   后端接口          http://localhost:8080/api/health
+#   MySQL (容器)      localhost:3307   <- 注意不是 3306，本机 MySQL80 已占用
+#   Redis             localhost:6379
+#   Chroma            localhost:8001
+#
+# 前提：宿主机上的 Ollama 必须已启动，并且设置了 OLLAMA_HOST=0.0.0.0
+# ============================================================
+
+services:
+
+  # ---------------- 后端 ----------------
+  backend:
+    build:
+      # 上下文必须是 opsai 目录，因为 Dockerfile 里要同时取
+      # opsai-backend/ 和 deploy/maven-settings.xml
+      context: .
+      dockerfile: opsai-backend/Dockerfile
+    image: opsai-backend:1.0.0
+    container_name: opsai-backend
+    restart: unless-stopped
+    environment:
+      # 容器内的 MySQL 主机名是服务名 mysql，不是 localhost
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/opsai?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      # 密码从环境变量读取，默认值与 .env.example 保持一致；部署前请改成自己的
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      # 访问宿主机上的 Ollama（Windows 上的 Ollama 不在容器网络里）
+      OPSAI_OLLAMA_BASE_URL: http://host.docker.internal:11434
+      TZ: Asia/Shanghai
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      # Linux 上必须加这一行，host.docker.internal 才能解析到宿主机
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      # JRE 基础镜像里不一定有 wget/curl，所以用 bash 自带的 /dev/tcp 探测端口，
+      # 避免因缺少工具导致容器一直被标成 unhealthy
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080' || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ---------------- 前端 ----------------
+  web:
+    build:
+      context: .
+      dockerfile: opsai-web/Dockerfile
+    image: opsai-web:1.0.0
+    container_name: opsai-web
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    depends_on:
+      - backend
+
+  # ---------------- 数据库 ----------------
+  mysql:
+    image: mysql:8.0
+    container_name: opsai-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      MYSQL_DATABASE: opsai
+      TZ: Asia/Shanghai
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
+    volumes:
+      - ./deploy/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - mysql-data:/var/lib/mysql
+    ports:
+      # 本机 MySQL80 已经占了 3306，所以这里映射到 3307
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot123456 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  # ---------------- Redis（按需求引入的组件，做缓存与会话）----------------
+  redis:
+    image: redis:7-alpine
+    container_name: opsai-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  # ---------------- Chroma（向量库，知识量上万后启用）----------------
+  # 当前版本的检索是 Java 内存里算余弦相似度（见 Retriever 注释），
+  # 这里先把环境准备好，等知识库规模上来可以直接切过去。
+  chroma:
+    image: chromadb/chroma:0.5.5
+    container_name: opsai-chroma
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+
+volumes:
+  mysql-data:
+  chroma-data:

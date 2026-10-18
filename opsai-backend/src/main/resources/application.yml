@@ -1,0 +1,50 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: opsai-backend
+  datasource:
+    url: jdbc:mysql://localhost:3306/opsai?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${MYSQL_USER:root}
+    # 本地开发默认值；公开部署时请用环境变量 MYSQL_PASSWORD 覆盖，别把真实密码提交进仓库
+    password: ${MYSQL_PASSWORD:123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none          # 表已经在 init.sql 里建好了，不要让 JPA 自动改表
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Shanghai
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+  jackson:
+    default-property-inclusion: non_null
+
+opsai:
+  ollama:
+    base-url: http://localhost:11434
+    chat-model: qwen2.5:7b-instruct-q4_K_M
+    embed-model: bge-m3
+    temperature: 0.2          # 运维排查要稳定，不要让它发挥想象力
+    num-ctx: 4096             # 上下文长度，配合 6GB 显存
+    timeout-seconds: 300      # 单次生成最长等待时间
+  rag:
+    top-k: 4                  # 每次检索取 4 个最相似的片段
+    min-score: 0.35           # 相似度低于这个值就不算命中，避免硬凑
+    chunk-size: 400           # 每个知识分块 400 字
+    chunk-overlap: 80         # 相邻块重叠 80 字，避免切断上下文
+    embed-on-cpu: true        # 嵌入模型放 CPU，避免把对话模型挤出 6GB 显存（详见 OpsAiProps 注释）
+  storage:
+    upload-dir: ./data/logs   # 上传的日志文件存这里
+  auth:
+    token-hours: 12           # 登录 token 有效期（小时）
+
+logging:
+  level:
+    root: info
+    com.opsai: debug

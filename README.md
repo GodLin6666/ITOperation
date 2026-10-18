@@ -104,7 +104,8 @@ opsai/
 │  ├─ mysql/init.sql             容器内初始化 SQL（不带 CREATE DATABASE）
 │  └─ maven-settings.xml         容器内 Maven 镜像设置
 ├─ knowledge/
-│  └─ kb-seed.json               33 条知识库种子数据（5 大类故障）
+│  ├─ kb-seed.json               33 条知识库种子数据（服务器/数据库/中间件/网络）
+│  └─ kb-desktop.json            12 条桌面运维种子数据（卡顿/蓝屏/打印机/远程桌面等）
 ├─ scripts/
 │  ├─ seed-kb.ps1                批量导入知识库（自动分块 + 向量化）
 │  ├─ verify-diagnose.ps1              单点验收：灌 3 条知识 + 跑一次诊断
@@ -157,7 +158,7 @@ opsai/
 ### 第 1 步：建数据库
 
 ```powershell
-mysql -u root -p123456 --default-character-set=utf8mb4 -e "source C:/Users/<你的用户名>/Desktop/666/opsai/init.sql"
+mysql -u root -p123456 --default-character-set=utf8mb4 -e "source C:\opsai\init.sql"
 ```
 
 ### 第 2 步：启动后端
@@ -193,13 +194,13 @@ npm run dev
 
 ### 导入知识库（首次必做）
 
-知识库为空时检索不到任何资料，诊断质量会很差。导入 33 条内置知识：
+知识库为空时检索不到任何资料，诊断质量会很差。导入全部内置知识（45 条）：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File C:\opsai\scripts\seed-kb.ps1
 ```
 
-脚本按标题去重，**可以重复执行**。33 条约需 50 秒（每条都要算向量）。
+脚本按标题去重，**可以重复执行**。45 条约需 70 秒（每条都要算向量）。
 
 ---
 
@@ -240,7 +241,7 @@ powershell -ExecutionPolicy Bypass -File C:\opsai\scripts\seed-kb.ps1
 | 非生成类接口响应 | 1 ～ 27 ms（health 5ms、知识列表 5ms、案例 21ms、统计 11ms） | ≤ 2000 ms ✅ |
 | 前端页面响应 | 13 ms | ≤ 2000 ms ✅ |
 | 检索 Top1 相似度 | 0.7472（MySQL 连接数打满） | — |
-| 知识库规模 | 33 条知识 / 69 个向量分块 | 25～30 条 ✅ |
+| 知识库规模 | 45 条知识 / 93 个向量分块 | 25～30 条 ✅ |
 | 检索命中 | 每次 4 条，按相似度降序 | — |
 | 引用可追溯 | 每条原因均含 `[资料N]` | 必须 ✅ |
 | 权限控制 | viewer 写操作 403，engineer 审核 403，未登录 401 | ✅ |
@@ -253,7 +254,7 @@ powershell -ExecutionPolicy Bypass -File C:\opsai\scripts\seed-kb.ps1
 | 验证方式 | 覆盖内容 |
 | --- | --- |
 | `verify-all.ps1`（46 项） | 接口行为、权限、检索排序、引用、导出、统计、数据库 |
-| 无头 Chrome 真实渲染 | 6 个页面在浏览器里真的跑起来了，DOM 里有真实数据（如知识库 33 条） |
+| 无头 Chrome 真实渲染 | 6 个页面在浏览器里真的跑起来了，DOM 里有真实数据（如知识库 45 条） |
 | 浏览器内跑完整三段流程 | 用 `fetch` 在浏览器上下文里调 `/api/diagnose`，确认代理、token、长请求、JSON 解码全通 |
 | iframe 精确 375px 测量 | `documentElement.scrollWidth === 375`，4 个页面均无横向溢出 |
 | LibreOffice 渲染 docx | 导出文件能被真实 Office 引擎打开并正确排版（截图见 `samples/移动端预览` 与 `samples/处理单预览`） |
@@ -276,7 +277,7 @@ powershell -ExecutionPolicy Bypass -File C:\opsai\scripts\seed-kb.ps1
 
 **问题**：本机是 6GB 显存的 RTX 4050 Laptop。qwen2.5-7B 量化后占约 4.7GB，只剩 1.2GB 左右，而 bge-m3 恰好约 1.2GB，两个模型塞不进显存。Ollama 的调度器会把对话模型换出，于是**每次诊断都要重新从硬盘加载 7B 模型**。
 
-**实测数据**（实测数据）：
+**实测数据**：
 
 | 场景 | 首字耗时 |
 | --- | --- |

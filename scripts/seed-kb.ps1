@@ -1,7 +1,7 @@
 ﻿# ============================================================
 # 知识库批量导入脚本
-# 读取 opsai\knowledge\kb-seed.json，逐条调用 /api/kb/document
-# 每条都会自动切块（400 字/块）并调用 bge-m3 计算 1024 维向量
+# 读取 opsai\knowledge\ 下的种子文件（kb-seed.json + kb-desktop.json），
+# 逐条调用 /api/kb/document，每条自动切块（400 字/块）并调用 bge-m3 算 1024 维向量
 #
 # 用法：powershell -ExecutionPolicy Bypass -File opsai\scripts\seed-kb.ps1
 # 可选参数：-Base http://localhost:8080   -User admin   -Pass admin123
@@ -15,8 +15,8 @@ param(
 $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 
-$seedPath = Join-Path $PSScriptRoot '..\knowledge\kb-seed.json'
-$seedPath = (Resolve-Path $seedPath).Path
+# 需要导入的种子文件（都放在 knowledge/ 目录下）
+$seedFiles = @('kb-seed.json', 'kb-desktop.json')
 
 function Post-Json([string]$uri, $obj, [string]$token) {
     $json = $obj | ConvertTo-Json -Depth 10 -Compress
@@ -39,8 +39,19 @@ $token = $login.token
 Write-Host "已登录：$($login.realName)"
 
 Write-Host "`n=== 2. 读取种子数据 ===" -ForegroundColor Cyan
-$docs = Get-Content $seedPath -Raw -Encoding UTF8 | ConvertFrom-Json
-Write-Host "种子文件共 $($docs.Count) 条知识"
+$docs = @()
+foreach ($f in $seedFiles) {
+    $p = Join-Path $PSScriptRoot "..\knowledge\$f"
+    if (-not (Test-Path $p)) { Write-Host ("  跳过（文件不存在）：" + $f) -ForegroundColor DarkGray; continue }
+    $parsed = Get-Content $p -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($null -eq $parsed) { continue }
+    # 注意：不能写成 @(Get-Content ... | ConvertFrom-Json)。
+    # 那样 PowerShell 会把整个 JSON 数组当成「一个元素」，结果只读到 1 条。
+    $part = [object[]]$parsed
+    Write-Host ("  {0,-18} {1,3} 条" -f $f, $part.Count)
+    $docs += $part
+}
+Write-Host ("种子合计 {0} 条知识" -f $docs.Count)
 
 Write-Host "`n=== 3. 检查已有知识（按标题去重）===" -ForegroundColor Cyan
 $existing = Get-Json '/api/kb/documents' $token

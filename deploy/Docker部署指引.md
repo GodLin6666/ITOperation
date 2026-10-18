@@ -20,7 +20,7 @@
 | 启用虚拟化（VirtualMachinePlatform + WSL） | ✅ `exitcode=3010`（成功待重启） |
 | 配置国内镜像加速 | ✅ 实测 `docker.1ms.run` 64 ms；Docker Hub 直连超时 |
 | 5 个容器 | ✅ 全部 Up，backend 与 mysql 均 healthy |
-| 容器内数据 | ✅ 33 条知识 / 69 个向量块 / 3 个初始账号 |
+| 容器内数据 | ✅ 45 条知识 / 93 个向量块 / 3 个初始账号 |
 | 容器版全量验收 | ✅ **51 项全部通过** |
 | 首字耗时（容器版） | ✅ 首次 1477 ms、热态 87 ms（修复 keep_alive 前是 10285 ms） |
 

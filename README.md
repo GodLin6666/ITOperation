@@ -13,6 +13,22 @@
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
 
+## 下载安装（Windows）
+
+**[⬇️ 下载桌面版 v1.0.0](https://github.com/GodLin6666/ITOperation/releases/latest)**
+
+解压后双击 `IT运维助手` 快捷方式即可，**不需要 Docker、MySQL，也不用装 Java**（JRE 已捆绑）。
+
+> ⚠️ **但仍需先安装 Ollama**：压缩包不包含大模型（约 6 GB，无法分发）。
+> 第一次使用前请先执行：
+> ```bash
+> ollama pull qwen2.5:7b-instruct-q4_K_M   # 约 4.7 GB，负责生成
+> ollama pull bge-m3                        # 约 1.2 GB，负责检索
+> ```
+> 没装 Ollama 时程序**界面能打开、能登录**，但诊断功能会提示模型不可用。
+
+也支持 Docker 部署（`docker compose up -d --build`），见 [第九节](#十docker-一键部署已验证)。
+
 ## 界面预览
 
 | 普通用户（极简问答） | 运维管理端（操作日志） |

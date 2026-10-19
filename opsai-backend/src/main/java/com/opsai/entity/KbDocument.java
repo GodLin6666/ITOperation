@@ -17,7 +17,11 @@ public class KbDocument {
     private String deviceType;
     private String faultCategory;
     private String docType;
+
+    /** 知识正文，可能上千字，必须 TEXT（否则桌面版自动建表会变成 VARCHAR(255)） */
+    @Column(columnDefinition = "TEXT")
     private String content;
+
     private String source;
     private Integer status;
     private Integer version;

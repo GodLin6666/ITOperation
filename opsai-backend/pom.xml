@@ -47,7 +47,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- H2 内嵌数据库：桌面版 exe 用，免安装 MySQL -->
+        <!-- H2 内嵌数据库：本地快速调试用（不起 MySQL 也能跑通接口） -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>

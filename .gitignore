@@ -49,11 +49,9 @@ samples/**/manifest.json
 # ============================================================
 opsai-backend/.mvn/maven.config
 
-# ============================================================
-# 桌面版（exe）构建产物 —— 由 scripts/build-exe.ps1 自动生成
-# 来源是 opsai-web/dist 和 knowledge/，不需要进仓库
-# ============================================================
+
+
+# 桌面版构建产物（如果本地还留着这个目录，不要提交）
+build-desktop/
 opsai-backend/src/main/resources/static/
 opsai-backend/src/main/resources/knowledge/
-opsai-backend/icon.ico
-build-desktop/

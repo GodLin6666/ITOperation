@@ -425,50 +425,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 [deploy/企业域部署指引.md](deploy/企业域部署指引.md)。
 
 ---
-## 十、桌面版（单文件 exe，不需要 Docker / MySQL）
-
-除了 Docker 部署，项目还能打成一个**双击即用的 Windows 桌面程序**：
-
-```
-scripts\build-exe.ps1
-        ↓
-build-desktop\ITOpsAssistant\
-├─ ITOpsAssistant.exe      主程序（196 MB，已捆绑 JRE 17）
-├─ IT运维助手.lnk           中文快捷方式，双击这个
-├─ app\opsai-backend.jar    后端 + 前端页面 + 知识库种子
-└─ runtime\                捆绑的 Java 运行时
-```
-
-**和 Docker 版的区别：**
-
-| | Docker 版 | 桌面版 exe |
-| --- | --- | --- |
-| 需要装 Docker | 是 | **否** |
-| 需要装 MySQL | 是 | **否**（改用内嵌 H2） |
-| 需要装 Java | 是 | **否**（JRE 已捆绑） |
-| 前端服务 | nginx 容器 | Spring Boot 直接托管 |
-| 数据位置 | MySQL 容器卷 | `%USERPROFILE%\opsai-data\` |
-| 启动方式 | `docker compose up` | **双击 exe** |
-| 外部依赖 | Ollama | Ollama |
-
-> **唯一的外部依赖仍然只有 Ollama**。模型有 5.4GB 且必须作为独立服务常驻，
-> 无论怎么打包都不可能塞进 exe 里。
-
-**首次启动会自动做三件事**：建 H2 库表 → 建 3 个初始账号 → 后台导入 45 条内置知识（约 2~5 分钟）。
-启动完自动打开浏览器，之后数据都留在 `%USERPROFILE%\opsai-data\`，卸载 exe 也不会丢。
-
-![桌面版](samples/角色界面/desktop-exe.png)
-
-**打包时踩到并已规避的两个坑**（都写在脚本注释里）：
-
-1. **exe 文件名不能是中文**：用中文名（如 `IT运维助手.exe`）打出来的程序会启动即退出（退出码 1）。
-   所以 exe 固定用 `ITOpsAssistant`，再生成一个中文名 `.lnk` 快捷方式作为入口。
-2. **不能用 `System.Drawing` 手工生成的 .ico**：这种图标会让无窗口 launcher 卡死
-   （进程在、内存占到 180MB+，但永远不监听端口）。脚本因此不传 `--icon`。
-
----
-
-## 十一、Docker 一键部署（已验证）
+## 十、Docker 一键部署（已验证）
 
 **一条命令起全套**：
 

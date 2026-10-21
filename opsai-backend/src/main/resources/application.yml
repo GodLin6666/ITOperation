@@ -24,6 +24,12 @@ spring:
       max-request-size: 20MB
   jackson:
     default-property-inclusion: non_null
+  # Redis：只有把会话存到 Redis（多后端负载均衡）时才会用到
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 3s
 
 opsai:
   ollama:
@@ -43,6 +49,8 @@ opsai:
     upload-dir: ./data/logs   # 上传的日志文件存这里
   auth:
     token-hours: 12           # 登录 token 有效期（小时）
+    # 会话存储：memory = 放进程内存（单后端，默认）；redis = 放 Redis（多后端负载均衡时必须）
+    store: memory
 
 logging:
   level:

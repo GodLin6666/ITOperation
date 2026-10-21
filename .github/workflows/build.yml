@@ -1,0 +1,63 @@
+name: build
+
+# 每次 push / PR 都编译一遍前后端，防止提交了编译不过的代码
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend:
+    name: 后端编译（Java 17 + Maven）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      # 用 -DskipTests：单元测试依赖真实 MySQL / Ollama，CI 环境没有，
+      # 这里只验证「能不能编译打包」。接口级验证靠 scripts/verify-all.ps1 在本机跑。
+      - name: 打包
+        working-directory: opsai-backend
+        run: mvn -B -DskipTests package
+
+      - name: 上传 jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: opsai-backend-jar
+          path: opsai-backend/target/opsai-backend-*.jar
+          retention-days: 7
+
+  frontend:
+    name: 前端构建（Node 22 + Vite）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: opsai-web/package-lock.json
+
+      - name: 安装依赖
+        working-directory: opsai-web
+        run: npm ci
+
+      - name: 构建
+        working-directory: opsai-web
+        run: npm run build
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: opsai-web-dist
+          path: opsai-web/dist
+          retention-days: 7

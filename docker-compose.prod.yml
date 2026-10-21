@@ -31,7 +31,7 @@ services:
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 里设置 MYSQL_ROOT_PASSWORD}
 
-      # 域认证开关：设成 standalone 就是纯本地账号
+      # 域认证开关：domain = 启域认证；设成 default（或不设）就是纯本地账号
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-domain}
 
       # 以下覆盖 application-domain.yml 里的值，全部走 .env
@@ -47,6 +47,8 @@ services:
       # Ollama 地址：同机用 host.docker.internal，独立 GPU 机器就填它的内网 IP
       OPSAI_OLLAMA_BASE_URL: ${OPSAI_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       TZ: Asia/Shanghai
+      # 容器内 Redis 的服务名是 redis（不是 localhost）；只有开启 redis 会话存储时才用
+      SPRING_DATA_REDIS_HOST: redis
     volumes:
       # 用户上传的日志和截图。绑到宿主机 opsai/data：
       # 容器重建/升级不会丢，备份时直接拷这个目录即可

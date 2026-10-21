@@ -54,6 +54,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Redis：只在多台后端做负载均衡时才用到（会话共享 + 分布式限流预留） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
         <!-- LDAP / Active Directory：企业域环境用域账号登录 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

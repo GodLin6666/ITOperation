@@ -1,5 +1,6 @@
 package com.opsai.config;
 
+import com.opsai.service.Session;
 import com.opsai.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -82,7 +83,7 @@ public class WebConfig implements WebMvcConfigurer {
             if (token == null) token = request.getHeader("Authorization");
             if (token != null && token.startsWith("Bearer ")) token = token.substring(7);
 
-            AuthService.Session session = authService.verify(token);
+            Session session = authService.verify(token);
             if (session == null) {
                 write(response, 401, "未登录或登录已过期，请重新登录");
                 return false;

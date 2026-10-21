@@ -1,6 +1,8 @@
 package com.opsai.controller;
 
+import com.opsai.service.Session;
 import com.opsai.service.AuthService;
+import com.opsai.service.Session;
 import com.opsai.service.OpLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +40,7 @@ public class AuthController {
     @GetMapping("/me")
     public Map<String, Object> me(HttpServletRequest request) {
         String token = request.getHeader("X-Token");
-        AuthService.Session s = authService.verify(token);
+        Session s = authService.verify(token);
         if (s == null) throw new IllegalStateException("未登录或登录已过期");
         return Map.of("username", s.username(), "realName", s.realName(), "role", s.role());
     }
@@ -46,7 +48,7 @@ public class AuthController {
     @PostMapping("/logout")
     public Map<String, Object> logout(HttpServletRequest request) {
         String token = request.getHeader("X-Token");
-        AuthService.Session s = authService.verify(token);
+        Session s = authService.verify(token);
         authService.logout(token);
         if (s != null) opLog.log(s.username(), "退出登录", null, request.getRemoteAddr(), null);
         return Map.of("ok", true);

@@ -57,6 +57,13 @@ public class OpsAiProps {
     @Data
     public static class Auth {
         private int tokenHours = 12;
+
+        /**
+         * 会话存储方式：
+         *   memory —— 放进程内存（默认，单后端实例够用）
+         *   redis  —— 放 Redis（**多台后端做负载均衡时必须用**，否则会掉线）
+         */
+        private String store = "memory";
     }
 
     /**

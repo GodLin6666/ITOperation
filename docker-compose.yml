@@ -32,6 +32,8 @@ services:
       # 访问宿主机上的 Ollama（Windows 上的 Ollama 不在容器网络里）
       OPSAI_OLLAMA_BASE_URL: http://host.docker.internal:11434
       TZ: Asia/Shanghai
+      # 容器内 Redis 的服务名是 redis（不是 localhost）；只有开启 redis 会话存储时才用
+      SPRING_DATA_REDIS_HOST: redis
     volumes:
       # 上传的日志和截图，绑到宿主机 opsai/data，容器重建不丢
       - ./data:/app/data

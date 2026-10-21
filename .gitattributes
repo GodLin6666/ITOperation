@@ -1,0 +1,40 @@
+# ============================================================
+# 统一行尾，避免 Windows 上提交后 GitHub 显示「整个文件都改了」
+#
+# 项目主要在 Windows 上开发，但仓库里统一用 LF 存储；
+# 只有必须在 Windows 上按 CRLF 处理的脚本才显式声明。
+# ============================================================
+
+# 默认：由 Git 自动判断，仓库内统一 LF
+* text=auto eol=lf
+
+# 必须用 CRLF 的脚本（cmd 对 LF 的 .bat 会因为换行解析出错）
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# PowerShell 脚本本身对行尾不敏感，统一 LF 即可
+*.ps1  text eol=lf
+
+# 文档
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.sql  text eol=lf
+
+# Java / 前端源码
+*.java text eol=lf
+*.js   text eol=lf
+*.vue  text eol=lf
+*.css  text eol=lf
+*.conf text eol=lf
+
+# 二进制：不要做任何行尾转换
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.jar  binary
+*.docx binary
+*.zip  binary

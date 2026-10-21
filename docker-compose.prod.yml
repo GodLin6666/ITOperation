@@ -47,6 +47,10 @@ services:
       # Ollama 地址：同机用 host.docker.internal，独立 GPU 机器就填它的内网 IP
       OPSAI_OLLAMA_BASE_URL: ${OPSAI_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       TZ: Asia/Shanghai
+    volumes:
+      # 用户上传的日志和截图。绑到宿主机 opsai/data：
+      # 容器重建/升级不会丢，备份时直接拷这个目录即可
+      - ./data:/app/data
     ports:
       # 只绑本机：运维调试用，用户不直连
       - "127.0.0.1:8080:8080"
@@ -107,6 +111,8 @@ services:
     ports:
       - "127.0.0.1:6379:6379"
     command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
 
   # ---------------- Chroma ----------------
   chroma:
@@ -120,4 +126,5 @@ services:
 
 volumes:
   mysql-data:
+  redis-data:
   chroma-data:

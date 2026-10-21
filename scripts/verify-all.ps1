@@ -40,6 +40,21 @@ try {
     $er = Invoke-RestMethod -Uri 'http://localhost:11434/api/embed' -Method Post -Body ([System.Text.Encoding]::UTF8.GetBytes($eb)) -ContentType 'application/json' -TimeoutSec 120
     Check 'bge-m3 返回 1024 维向量' ($er.embeddings[0].Count -eq 1024) "维度=$($er.embeddings[0].Count)"
 } catch { Check 'bge-m3 返回 1024 维向量' $false $_.Exception.Message }
+# 预热对话模型。
+# 容器刚重启时模型还没进显存，第一次推理要重新加载（实测首字 9 秒以上），
+# 那样后面的「首字耗时」测的是冷启动，没有参考价值。
+# 应用本身给每个请求带了 keep_alive=30m，正常应该是热态，所以这里先打一次极小请求。
+try {
+    $warmBody = @{
+        model   = 'qwen2.5:7b-instruct-q4_K_M'
+        prompt  = 'ping'
+        stream  = $false
+        options = @{ num_predict = 1 }
+    } | ConvertTo-Json -Depth 5
+    $null = Invoke-RestMethod -Uri 'http://localhost:11434/api/generate' -Method Post `
+        -Body ([System.Text.Encoding]::UTF8.GetBytes($warmBody)) -ContentType 'application/json' -TimeoutSec 300
+    Check '对话模型预热（保证首字耗时测的是热态）' $true '已加载进显存'
+} catch { Check '对话模型预热' $false $_.Exception.Message }
 
 Write-Host "`n================ 登录与角色权限 ================" -ForegroundColor Cyan
 $tokens = @{}
@@ -249,6 +264,89 @@ if (-not $webUrl) {
     }
 }
 
+Write-Host "`n================ 自愈 ================" -ForegroundColor Cyan
+try {
+    $m = Get-Json '/api/selfheal/metrics' $tokens['admin']
+    Check '自愈指标可读 /api/selfheal/metrics' ($null -ne $m.disk -and $null -ne $m.memory -and $null -ne $m.kb) `
+        "磁盘 $($m.disk.usedPct)% / 内存 $($m.memory.usedPct)% / 知识 $($m.kb.documents) 篇"
+} catch { Check '自愈指标可读' $false $_.Exception.Message }
+
+try {
+    $acts = Get-Json '/api/selfheal/actions' $tokens['admin']
+    Check '白名单动作已注册（执行边界）' ($acts.Count -ge 3) (($acts | ForEach-Object { "$($_.key)($($_.risk))" }) -join ', ')
+} catch { Check '白名单动作已注册' $false $_.Exception.Message }
+
+try {
+    $scan = Post-Json '/api/selfheal/scan' @{} $tokens['admin']
+    Check '手动巡检可执行（只采集不改动）' ($null -ne $scan.created) "发现 $($scan.created) 个新问题"
+} catch { Check '手动巡检可执行' $false $_.Exception.Message }
+
+try {
+    $evs = Get-Json '/api/selfheal/events' $tokens['admin']
+    Check '自愈事件列表可读' ($null -ne $evs) "$($evs.Count) 条事件"
+} catch { Check '自愈事件列表可读' $false $_.Exception.Message }
+
+# 权限：viewer 完全看不到自愈
+try {
+    $null = Get-Json '/api/selfheal/metrics' $tokens['viewer']
+    Check 'viewer 被拒绝自愈接口' $false '居然成功了'
+} catch { Check 'viewer 被拒绝自愈接口' ($_.Exception.Response.StatusCode.value__ -eq 403) "HTTP $($_.Exception.Response.StatusCode.value__)" }
+
+# 权限：engineer 能看指标，但不能执行处置动作
+try {
+    $null = Get-Json '/api/selfheal/metrics' $tokens['engineer']
+    Check 'engineer 可查看自愈指标' $true '允许'
+} catch { Check 'engineer 可查看自愈指标' $false "HTTP $($_.Exception.Response.StatusCode.value__)" }
+
+try {
+    $null = Post-Json '/api/selfheal/events/1/execute' @{} $tokens['engineer']
+    Check 'engineer 不能执行处置动作' $false '居然成功了'
+} catch { Check 'engineer 不能执行处置动作（需管理员）' ($_.Exception.Response.StatusCode.value__ -eq 403) "HTTP $($_.Exception.Response.StatusCode.value__)" }
+
+# 安全兜底：不存在的动作一律拒绝（不产生副作用）
+try {
+    $null = Post-Json '/api/selfheal/events/999999/execute' @{} $tokens['admin']
+    Check '不存在的自愈事件拒绝执行' $false '居然成功了'
+} catch { Check '不存在的自愈事件拒绝执行' ($true) "HTTP $($_.Exception.Response.StatusCode.value__)" }
+
+Write-Host "`n================ 操作日志 ================" -ForegroundColor Cyan
+try {
+    $logs = Get-Json '/api/logs?limit=100' $tokens['admin']
+    Check '操作日志可查 /api/logs' ($logs.total -ge 1) "共 $($logs.total) 条"
+    $acts = ($logs.byAction.PSObject.Properties | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ' '
+    Check '日志含动作分布' (-not [string]::IsNullOrWhiteSpace($acts)) $acts
+    $loginLogged = $logs.items | Where-Object { $_.action -like '*登录*' } | Select-Object -First 1
+    Check '登录动作已落日志' ($null -ne $loginLogged) $(if ($loginLogged) { "$($loginLogged.username) $($loginLogged.action)" } else { '未找到' })
+} catch { Check '操作日志可查' $false $_.Exception.Message }
+
+try {
+    $null = Get-Json '/api/logs' $tokens['viewer']
+    Check 'viewer 被拒绝操作日志' $false '居然成功了'
+} catch { Check 'viewer 被拒绝操作日志' ($_.Exception.Response.StatusCode.value__ -eq 403) "HTTP $($_.Exception.Response.StatusCode.value__)" }
+
+Write-Host "`n================ 只读用户极简问答 ================" -ForegroundColor Cyan
+try {
+    $ans = Post-Json '/api/assist/ask' @{ question = '电脑很卡，打开什么都慢，怎么排查'; title = '验收-只读用户提问' } $tokens['viewer']
+    Check 'viewer 可提问 /api/assist/ask' ($null -ne $ans.conclusion) $ans.conclusion
+    Check '返回最多 3 条原因' ($ans.causes.Count -le 3) "$($ans.causes.Count) 条"
+    $fields = ($ans.PSObject.Properties.Name) -join ', '
+    Check '回答不含内部字段（模板/命中/向量）' (-not ($ans.PSObject.Properties.Name -contains 'hits') -and -not ($ans.PSObject.Properties.Name -contains 'templates')) $fields
+    Check '回答带引用来源' ($ans.sources.Count -ge 1) (($ans.sources | ForEach-Object { $_.title }) -join ' / ')
+} catch { Check 'viewer 可提问' $false $_.Exception.Message }
+
+# viewer 不能访问任何管理数据
+foreach ($ep in @('/api/kb/documents', '/api/tickets', '/api/stats/overview')) {
+    try {
+        $null = Get-Json $ep $tokens['viewer']
+        Check "viewer 被拒绝 $ep" $false '居然成功了'
+    } catch { Check "viewer 被拒绝 $ep" ($_.Exception.Response.StatusCode.value__ -eq 403) "HTTP $($_.Exception.Response.StatusCode.value__)" }
+}
+
+# /api/diagnose 是 POST 接口，必须用 POST 测，否则测到的是 405 而不是权限拒绝
+try {
+    $null = Post-Json '/api/diagnose' @{ title = 'viewer越权测试'; deviceType = 'app'; faultCategory = 'app'; phenomenon = 'x'; logText = 'x' } $tokens['viewer']
+    Check 'viewer 被拒绝 /api/diagnose' $false '居然成功了'
+} catch { Check 'viewer 被拒绝 /api/diagnose' ($_.Exception.Response.StatusCode.value__ -eq 403) "HTTP $($_.Exception.Response.StatusCode.value__)" }
 Write-Host "`n================ 数据库 ================" -ForegroundColor Cyan
 # 两种部署方式查库的方式不一样：
 #   Docker 部署 -> 用 docker exec 进容器查。
@@ -285,7 +383,7 @@ if ($useContainer) {
 
 try {
     $tables = Invoke-Sql "USE opsai; SHOW TABLES;"
-    Check '六张表齐全' ($tables.Count -eq 6) ($tables -join ', ')
+    Check '七张表齐全（含自愈事件表）' ($tables.Count -eq 7) ($tables -join ', ')
     $vc = Invoke-Sql "USE opsai; SELECT COUNT(*) FROM kb_chunk WHERE embedding IS NOT NULL AND dim=1024;"
     Check 'kb_chunk 中有 1024 维向量' ([int]$vc -gt 0) "$vc 条向量记录"
     $rc = Invoke-Sql "USE opsai; SELECT COUNT(*) FROM diagnose_record;"

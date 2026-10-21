@@ -512,6 +512,15 @@ cp .env.example .env      # 填域控地址、服务账号、MySQL 密码
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
+> **已有部署升级时**：`init.sql` 只在首次建库时执行，代码新增的表/字段老库拿不到，
+> 后端会报 `Unknown column 'xxx'` 并无限重启。拉新代码后先跑一次升级脚本：
+> ```bash
+> docker cp deploy/mysql/upgrade.sql opsai-mysql:/tmp/upgrade.sql
+> docker exec opsai-mysql sh -c "mysql -uroot -p密码 --default-character-set=utf8mb4 opsai < /tmp/upgrade.sql"
+> docker restart opsai-backend
+> ```
+> 全新部署不需要这一步。
+
 放行防火墙（Windows 服务器）：
 
 ```powershell

@@ -3,6 +3,7 @@ package com.opsai.config;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -25,6 +26,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, Object>> conflict(IllegalStateException e) {
         return build(HttpStatus.CONFLICT, e.getMessage());
+    }
+
+    /**
+     * 请求方法不对（比如用 GET 调 POST 接口）应该返回 405，而不是 500。
+     * <p>
+     * 这一点是验收时发现的：原来所有异常都落到兜底的 500 分支，
+     * 于是"用错了 HTTP 方法"这种客户端错误也被报成"服务器内部错误"，
+     * 排查时会误以为是后端崩了。顺带把支持的方法也告诉调用方。
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Map<String, Object>> methodNotAllowed(HttpRequestMethodNotSupportedException e) {
+        String supported = e.getSupportedHttpMethods() == null
+                ? "" : "，该接口支持 " + e.getSupportedHttpMethods();
+        return build(HttpStatus.METHOD_NOT_ALLOWED,
+                "请求方法 " + e.getMethod() + " 不被支持" + supported);
     }
 
     @ExceptionHandler(Exception.class)

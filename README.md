@@ -373,8 +373,8 @@ Spring 默认返回 `Content-Type: application/json`（不带字符集）。浏�
 | 现象 | 原因 | 解决 |
 | --- | --- | --- |
 | 检索结果为空 | 知识库没导入，或相似度低于阈值 | 跑 `seed-kb.ps1`；或把 `opsai.rag.min-score` 从 0.35 降到 0.25 |
-| 首字耗时突然变 5 秒以上 | 对话模型被挤出显存 | 确认 `embed-on-cpu: true`；关掉占显存的程序（游戏等） |
-| 生成速度只有 12 字/秒 | 笔记本 GPU 被其他程序占用或功耗受限 | `nvidia-smi` 看显存占用；关掉 Steam、浏览器等 |
+| 首字耗时突然变 5 秒以上 | 对话模型被挤出显存 | 确认 `embed-on-cpu: true`；用 `nvidia-smi` 看显存占用 |
+| 生成速度只有 12 字/秒 | 笔记本 GPU 功耗受限或显存不足 | 用 `nvidia-smi` 看 GPU 利用率、显存占用与功耗 |
 | PowerShell 里中文乱码 | PS 5.1 对无 charset 的 JSON 会按 ISO-8859-1 解码 | 本项目已让后端返回 `application/json;charset=UTF-8`，重启后端即可 |
 | `mvn` 报 settings 文件不存在 | 用了 `-s` 又和 `.mvn/maven.config` 冲突 | 直接敲 `mvn`，不要加 `-s` |
 | 前端报 CORS | 直接调了 8080 | 用 vite 代理（`/api`）或 Nginx 反代 |

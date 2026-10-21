@@ -1,0 +1,55 @@
+# ============================================================
+# 企业域环境配置模板
+#
+# 用法（三选一）：
+#   1) Docker：在 docker-compose.prod.yml 里设 SPRING_PROFILES_ACTIVE=domain
+#   2) jar：  java -jar opsai-backend.jar --spring.profiles.active=domain
+#   3) 桌面版：不走这套（桌面版是单机，没有域）
+#
+# 这个文件是**覆盖** application.yml 的，只写域相关的差异项。
+#
+# ⚠️ 改之前先跟域管理员确认三件事：
+#   - 域控地址（ldap:// 还是 ldaps://）
+#   - Base DN（形如 DC=corp,DC=local）
+#   - 你们用的用户属性：AD 是 sAMAccountName，OpenLDAP 通常是 uid
+# ============================================================
+
+opsai:
+  ldap:
+    enabled: true
+
+    # 域控地址。多台域控建议用 ldaps:// 并配好证书；这里先写一台，故障时改这一行即可
+    url: ldap://dc01.corp.local:389
+
+    base-dn: DC=corp,DC=local
+
+    # 用户查询过滤器，{0} 会被替换成登录名
+    #   AD 用 (sAMAccountName={0})
+    #   OpenLDAP 用 (uid={0})
+    user-filter: (sAMAccountName={0})
+
+    # 服务账号：只用于「按过滤器搜索用户属性（显示名、所属组）」
+    # AD 默认允许普通域用户匿名读取基本属性，能匿名查的话这两行可以留空
+    manager-dn: CN=svc-opsai,OU=Service,DC=corp,DC=local
+    manager-password: ${LDAP_MANAGER_PASSWORD:}
+
+    display-name-attr: displayName
+    group-attr: memberOf
+
+    # 组名匹配（只要 memberOf 里**包含**这段文字就算命中，不区分大小写）
+    # 建议在 AD 里专门建两个安全组给这个系统用，不要把普通组配进来
+    admin-group: CN=OpsAI-Admins
+    engineer-group: CN=OpsAI-Engineers
+
+    # 不属于任何授权组的域用户，登录后默认给什么角色
+    # 建议 viewer（只能提问）；不想让所有员工都能进，就把值改成空并在代码里拒绝
+    default-role: viewer
+
+    timeout-ms: 5000
+
+# 域环境下建议把日志级别调回 info，debug 日志量太大
+logging:
+  level:
+    com.opsai: info
+    # 排查域认证问题时可临时改成 debug，能看到 LDAP 交互细节
+    org.springframework.ldap: warn

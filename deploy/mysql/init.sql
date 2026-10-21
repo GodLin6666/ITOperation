@@ -70,13 +70,17 @@ CREATE TABLE IF NOT EXISTS diagnose_record (
 ) ENGINE=InnoDB COMMENT='诊断记录';
 
 -- 表5：用户（登录和角色权限）
+-- auth_source 区分认证来源：
+--   LOCAL = 本系统自己校验密码（内置 admin/engineer/viewer，域控故障时的应急入口）
+--   LDAP  = 企业域账号，密码由域控校验，本地只留一条记录用于日志和权限
 CREATE TABLE IF NOT EXISTS sys_user (
   id          BIGINT PRIMARY KEY AUTO_INCREMENT,
   username    VARCHAR(50)  NOT NULL UNIQUE,
-  password    VARCHAR(100) NOT NULL COMMENT 'BCrypt 加密后的密码',
+  password    VARCHAR(100) NOT NULL COMMENT 'BCrypt 加密后的密码；LDAP 账号存随机串',
   real_name   VARCHAR(50),
   role        VARCHAR(20)  NOT NULL DEFAULT 'engineer' COMMENT 'admin/engineer/viewer',
   status      TINYINT NOT NULL DEFAULT 1,
+  auth_source VARCHAR(20)  NOT NULL DEFAULT 'LOCAL' COMMENT 'LOCAL/LDAP',
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB COMMENT='用户';
 

@@ -1,0 +1,123 @@
+# ============================================================
+# 企业内网生产部署编排
+#
+# 用法：
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# 和开发版 docker-compose.yml 的区别（都是安全相关的）：
+#   1. 只对外暴露 8000（前端）。数据库/Redis/向量库一律绑 127.0.0.1，局域网里别人连不上
+#   2. 后端也只绑 127.0.0.1:8080，用户统一走 nginx，不直连后端
+#   3. 默认开启域认证（SPRING_PROFILES_ACTIVE=domain）
+#   4. MySQL 密码强制从 .env 读取，不再有默认弱口令
+#
+# 上线前务必做的三件事：
+#   - 在 .env 里设强密码（MYSQL_ROOT_PASSWORD / LDAP_MANAGER_PASSWORD）
+#   - 服务器防火墙只放行 8000 入站
+#   - 按 application-domain.yml 改好域控参数
+# ============================================================
+
+services:
+
+  # ---------------- 后端 ----------------
+  backend:
+    build:
+      context: .
+      dockerfile: opsai-backend/Dockerfile
+    image: opsai-backend:1.0.0
+    container_name: opsai-backend
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/opsai?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 里设置 MYSQL_ROOT_PASSWORD}
+
+      # 域认证开关：设成 standalone 就是纯本地账号
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-domain}
+
+      # 以下覆盖 application-domain.yml 里的值，全部走 .env
+      OPSAI_LDAP_URL: ${OPSAI_LDAP_URL:-ldap://dc01.corp.local:389}
+      OPSAI_LDAP_BASE_DN: ${OPSAI_LDAP_BASE_DN:-DC=corp,DC=local}
+      OPSAI_LDAP_USER_FILTER: ${OPSAI_LDAP_USER_FILTER:-(sAMAccountName={0})}
+      OPSAI_LDAP_MANAGER_DN: ${OPSAI_LDAP_MANAGER_DN:-}
+      OPSAI_LDAP_MANAGER_PASSWORD: ${LDAP_MANAGER_PASSWORD:-}
+      OPSAI_LDAP_ADMIN_GROUP: ${OPSAI_LDAP_ADMIN_GROUP:-}
+      OPSAI_LDAP_ENGINEER_GROUP: ${OPSAI_LDAP_ENGINEER_GROUP:-}
+      OPSAI_LDAP_DEFAULT_ROLE: ${OPSAI_LDAP_DEFAULT_ROLE:-viewer}
+
+      # Ollama 地址：同机用 host.docker.internal，独立 GPU 机器就填它的内网 IP
+      OPSAI_OLLAMA_BASE_URL: ${OPSAI_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      TZ: Asia/Shanghai
+    ports:
+      # 只绑本机：运维调试用，用户不直连
+      - "127.0.0.1:8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080' || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  # ---------------- 前端（唯一对外入口）----------------
+  web:
+    build:
+      context: .
+      dockerfile: opsai-web/Dockerfile
+    image: opsai-web:1.0.0
+    container_name: opsai-web
+    restart: unless-stopped
+    ports:
+      # 0.0.0.0:8000 —— 局域网内其他电脑访问 http://服务器IP:8000
+      - "8000:80"
+    depends_on:
+      - backend
+
+  # ---------------- 数据库 ----------------
+  mysql:
+    image: mysql:8.0
+    container_name: opsai-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 里设置 MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: opsai
+      TZ: Asia/Shanghai
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
+    volumes:
+      - ./deploy/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - mysql-data:/var/lib/mysql
+    ports:
+      # 只给本机的 Navicat/DBeaver 用，局域网连不进来
+      - "127.0.0.1:3307:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # ---------------- Redis ----------------
+  redis:
+    image: redis:7-alpine
+    container_name: opsai-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: redis-server --appendonly yes
+
+  # ---------------- Chroma ----------------
+  chroma:
+    image: chromadb/chroma:0.5.5
+    container_name: opsai-chroma
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+
+volumes:
+  mysql-data:
+  chroma-data:

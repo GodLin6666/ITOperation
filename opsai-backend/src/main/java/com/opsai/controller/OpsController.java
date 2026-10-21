@@ -1,6 +1,7 @@
 package com.opsai.controller;
 
 import com.opsai.client.OllamaClient;
+import com.opsai.config.OpsAiProps;
 import com.opsai.service.DiagnoseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -19,13 +20,19 @@ public class OpsController {
 
     private final DiagnoseService diagnoseService;
     private final OllamaClient ollamaClient;
+    private final OpsAiProps props;
 
-    /** 健康检查：顺带报告 Ollama 和两个模型是否就绪 */
+    /**
+     * 健康检查：报告 Ollama 和两个模型是否就绪，以及是否启用了域认证。
+     * 这个接口不走登录校验，登录页据此决定要不要显示「用域账号登录」的提示。
+     */
     @GetMapping("/health")
     public Map<String, Object> health() {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("status", "ok");
         out.put("time", LocalDateTime.now().toString());
+        // 企业域环境：前端登录页据此提示可以用域账号
+        out.put("ldapEnabled", props.getLdap().isEnabled());
         try {
             out.put("llm", ollamaClient.health());
         } catch (Exception e) {

@@ -43,8 +43,10 @@ public class DataInitializer implements CommandLineRunner {
         user.setRealName(realName);
         user.setRole(role);
         user.setStatus(1);
+        // 内置账号走本地密码，域控故障时仍能进来（应急入口）
+        user.setAuthSource("LOCAL");
         user.setCreateTime(LocalDateTime.now());
         userRepo.save(user);
-        log.info("已创建初始账号：{} / {}（角色 {}）", username, rawPassword, role);
+        log.info("已创建初始账号：{} / {}（角色 {}，本地认证）", username, rawPassword, role);
     }
 }

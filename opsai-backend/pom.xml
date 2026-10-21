@@ -54,6 +54,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- LDAP / Active Directory：企业域环境用域账号登录 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-ldap</artifactId>
+        </dependency>
+
         <!-- BCrypt 密码加密（只取加密工具，不引入整套 Security 过滤器） -->
         <dependency>
             <groupId>org.springframework.security</groupId>

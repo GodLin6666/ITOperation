@@ -17,6 +17,7 @@ public class OpsAiProps {
     private Rag rag = new Rag();
     private Storage storage = new Storage();
     private Auth auth = new Auth();
+    private Ldap ldap = new Ldap();
 
     @Data
     public static class Ollama {
@@ -56,5 +57,72 @@ public class OpsAiProps {
     @Data
     public static class Auth {
         private int tokenHours = 12;
+    }
+
+    /**
+     * 企业域（AD / OpenLDAP）对接配置。
+     * <p>
+     * 开启后，员工用**域账号**登录，本系统不再单独维护密码；
+     * 登录成功会自动在 sys_user 里建一条 auth_source=LDAP 的记录用于留痕。
+     * <p>
+     * 安全约定：
+     * <ul>
+     *   <li>LDAP 用户只能走 LDAP 认证，不允许回落成本地密码；</li>
+     *   <li>本地账号（auth_source=LOCAL，如内置 admin）仍然可用，作为域控故障时的应急入口；</li>
+     *   <li>域控不可达时不会让整个系统瘫痪，只是 LDAP 用户登不进来。</li>
+     * </ul>
+     */
+    @Data
+    public static class Ldap {
+        private boolean enabled = false;
+
+        /** 域控地址：ldap://dc01.corp.local:389 或 ldaps://dc01.corp.local:636 */
+        private String url = "";
+        private String baseDn = "";
+
+        /**
+         * 绑定方式，决定「拿什么身份去域控验证密码」：
+         * <ul>
+         *   <li>{@code UPN} —— zhangsan@corp.local，AD 首选，不需要服务账号</li>
+         *   <li>{@code DN}  —— 按 userDnPattern 拼出 DN，OpenLDAP 常用</li>
+         *   <li>{@code SEARCH} —— 先用服务账号搜出 DN 再绑定，需要 managerDn</li>
+         * </ul>
+         * 之所以要三种：AD 默认不允许匿名查，OpenLDAP 也一样，
+         * 「先匿名搜再绑定」在不配服务账号的环境里会直接失败。
+         */
+        private String bindMode = "UPN";
+
+        /** bindMode=UPN 时用，例如 corp.local */
+        private String upnSuffix = "";
+
+        /** bindMode=DN 时用，例如 uid={0},ou=People,dc=corp,dc=local */
+        private String userDnPattern = "";
+
+        /** 用户查询过滤器，{0} 会被替换成登录名：AD 用 (sAMAccountName={0})，OpenLDAP 用 (uid={0}) */
+        private String userFilter = "(sAMAccountName={0})";
+
+        /** 搜索用户的起始 DN，留空则用 baseDn */
+        private String userSearchBase = "";
+
+        /** 服务账号，仅 bindMode=SEARCH 时需要 */
+        private String managerDn = "";
+        private String managerPassword = "";
+
+        /** 取显示名和所属组的属性名 */
+        private String displayNameAttr = "displayName";
+        private String groupAttr = "memberOf";
+
+        /** 组名匹配规则：memberOf 里包含这个片段就映射成对应角色（不区分大小写） */
+        private String adminGroup = "";
+        private String engineerGroup = "";
+
+        /** 没匹配到任何组时给的默认角色 */
+        private String defaultRole = "viewer";
+
+        /** 连接/查询超时（毫秒） */
+        private int timeoutMs = 5000;
+
+        /** ldaps + 域控自签证书时是否跳过证书校验（仅限内网） */
+        private boolean trustAllCerts = false;
     }
 }

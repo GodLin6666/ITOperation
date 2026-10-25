@@ -213,8 +213,9 @@ public class SelfHealService {
     public SelfHealEvent diagnose(Long id) throws Exception {
         SelfHealEvent e = must(id);
         String phenomenon = e.getTitle() + "：" + (e.getDiagnosis() == null ? "" : e.getDiagnosis());
+        // 自愈巡检针对的是本机服务器，按 Linux 平台检索
         DiagnoseService.DiagnoseResponse r = diagnoseService.diagnose(
-                "自愈巡检-" + e.getRuleKey(), "server", "system", phenomenon, null);
+                "自愈巡检-" + e.getRuleKey(), "server", "system", phenomenon, null, "LINUX");
 
         JsonNode answer = r.answer();
         Map<String, Object> brief = new LinkedHashMap<>();

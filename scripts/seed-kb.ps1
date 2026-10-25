@@ -1,4 +1,4 @@
-﻿# ============================================================
+# ============================================================
 # 知识库批量导入脚本
 # 读取 opsai\knowledge\ 下的种子文件（kb-seed.json + kb-desktop.json），
 # 逐条调用 /api/kb/document，每条自动切块（400 字/块）并调用 bge-m3 算 1024 维向量
@@ -16,7 +16,9 @@ $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 
 # 需要导入的种子文件（都放在 knowledge/ 目录下）
-$seedFiles = @('kb-seed.json', 'kb-desktop.json')
+# kb-linux / kb-windows 是双平台专用条目，带 platform 字段，
+# 导入后检索会按平台过滤：桌面问题不会检索到只有 Linux 才有的命令。
+$seedFiles = @('kb-seed.json', 'kb-desktop.json', 'kb-linux.json', 'kb-windows.json')
 
 function Post-Json([string]$uri, $obj, [string]$token) {
     $json = $obj | ConvertTo-Json -Depth 10 -Compress

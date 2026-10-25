@@ -1,0 +1,56 @@
+[
+  {
+    "title": "Windows 蓝屏（BSOD）排查手册",
+    "deviceType": "desktop",
+    "faultCategory": "system",
+    "docType": "manual",
+    "platform": "WINDOWS",
+    "source": "桌面运维沉淀",
+    "content": "现象：机器突然蓝屏重启，用户丢失未保存内容。\n1. 先取信息：事件查看器 → Windows 日志 → 系统，筛选事件 ID 1001（BugCheck）与 41（Kernel-Power），记下停止代码。\n2. 看转储：C:\\Windows\\Minidump 下的 dmp 文件，用 WinDbg 或 BlueScreenView 打开，重点看引发崩溃的驱动文件名。\n3. 常见来源：显卡或网卡驱动、第三方安全软件、内存条接触不良、系统更新不完整。\n4. 处置顺序：更新或回滚可疑驱动 → 卸载近期安装的安全软件 → 内存诊断（mdsched.exe）→ 检查磁盘（chkdsk）。\n5. 反复蓝屏且停止代码固定时，优先按代码查厂商公告，不要盲目重装系统。"
+  },
+  {
+    "title": "Windows 开机慢与登录慢排查",
+    "deviceType": "desktop",
+    "faultCategory": "system",
+    "docType": "manual",
+    "platform": "WINDOWS",
+    "source": "桌面运维沉淀",
+    "content": "现象：开机后长时间黑屏或转圈，登录后桌面很久才可用。\n1. 分开计时：BIOS 自检、系统启动、登录三个阶段，事件 ID 100 会给出启动耗时，6005/6006 标记日志服务起止。\n2. 启动项：任务管理器 → 启动，禁用非必要项；msconfig 看是否有异常服务。\n3. 域环境重点看组策略：gpupdate /force 后 gpresult /h 报告，登录脚本或映射盘失败会拖慢登录。\n4. 磁盘与驱动：机械盘做碎片整理，SSD 看健康度；显卡驱动异常也会拖慢登录。\n5. 排查工具：Windows Performance Recorder 抓一次启动，看哪个服务占用时间最长。"
+  },
+  {
+    "title": "打印机脱机与无法打印排查",
+    "deviceType": "desktop",
+    "faultCategory": "peripheral",
+    "docType": "manual",
+    "platform": "WINDOWS",
+    "source": "桌面运维沉淀",
+    "content": "现象：打印任务排队不动，打印机显示脱机，或提示后台处理程序错误。\n1. 先分清范围：本机其他打印机是否正常，同网段其他电脑能否打印，判断是终端问题还是打印机/网络问题。\n2. 服务：services.msc 检查 Print Spooler 是否运行，依赖的 Remote Procedure Call 是否正常。\n3. 队列卡死：停止 Print Spooler，清空 C:\\Windows\\System32\\spool\\PRINTERS 下的文件，再启动服务。\n4. 驱动与端口：设备和打印机 → 打印机属性 → 端口，确认 IP 未变；驱动版本与系统位数匹配。\n5. 网络打印机：ping 打印机 IP，浏览器打开管理页看状态；跨网段时检查打印服务器是否可达。"
+  },
+  {
+    "title": "共享文件夹无法访问排查（SMB）",
+    "deviceType": "desktop",
+    "faultCategory": "network",
+    "docType": "manual",
+    "platform": "WINDOWS",
+    "source": "桌面运维沉淀",
+    "content": "现象：访问 \\\\\\\\服务器\\\\共享 提示无权限、找不到网络路径，或凭据反复弹窗。\n1. 先排网络：ping 主机名与 IP，nslookup 看解析是否正确；能 ping IP 不能 ping 主机名就是 DNS 问题。\n2. 再看服务：目标机的 Server 服务、本机的 Workstation 服务是否运行。\n3. 凭据：控制面板 → 凭据管理器，清掉旧的共享凭据后重连；域账号要确认账号未被锁定。\n4. 权限：共享权限与 NTFS 权限取交集，两者都要放行；只读账号写不进去是正常现象。\n5. 协议：SMBv1 默认关闭，老设备需要单独开启，但要评估安全风险。"
+  },
+  {
+    "title": "系统盘空间不足清理指引",
+    "deviceType": "desktop",
+    "faultCategory": "disk",
+    "docType": "manual",
+    "platform": "WINDOWS",
+    "source": "桌面运维沉淀",
+    "content": "现象：C 盘飘红，系统提示空间不足，更新失败。\n1. 先定位：WinDirStat 或 设置 → 存储，看占用大头在哪。\n2. 常见占用：Windows 更新缓存（C:\\Windows\\SoftwareDistribution\\Download）、休眠文件（powercfg /h off 可关闭）、虚拟内存、WinSxS 组件库、用户下载与临时目录。\n3. 安全清理：磁盘清理 → 清理系统文件；DISM /Online /Cleanup-Image /StartComponentCleanup 清理组件库旧版本。\n4. 不要直接删 WinSxS 或 System32 下的文件；迁移用户目录前先确认漫游配置。\n5. 长期方案：把大文件目录迁到数据盘，或调整更新缓存位置。"
+  },
+  {
+    "title": "远程桌面连不上排查（RDP）",
+    "deviceType": "desktop",
+    "faultCategory": "network",
+    "docType": "manual",
+    "platform": "WINDOWS",
+    "source": "桌面运维沉淀",
+    "content": "现象：mstsc 连接报错，提示无法连接或凭据错误。\n1. 分层排查：先 ping，再 telnet IP 3389，确认端口通不通。\n2. 服务：services.msc 看 Remote Desktop Services 是否运行；系统属性 → 远程，确认已允许远程连接。\n3. 防火墙：入站规则里“远程桌面”是否启用；第三方安全软件常单独拦截。\n4. 身份验证：网络级别身份验证（NLA）与客户端版本不匹配会直接失败；域账号要确认有“允许通过远程桌面登录”的权限。\n5. 会话与证书：超出最大会话数、RDP 证书过期都会报错，事件查看器 → 应用程序日志里能看到具体原因。"
+  }
+]

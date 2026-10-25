@@ -1,0 +1,56 @@
+[
+  {
+    "title": "systemd 服务启动失败排查手册",
+    "deviceType": "server",
+    "faultCategory": "system",
+    "docType": "manual",
+    "platform": "LINUX",
+    "source": "内网运维沉淀",
+    "content": "现象：systemctl start xxx 报 failed，业务端口不通。\n1. 看状态：systemctl status xxx -l --no-pager，注意 Active 与 Result 两行，Result=exit-code 说明进程自己退了。\n2. 看日志：journalctl -u xxx -n 200 --no-pager；老系统看 /var/log/messages。\n3. 看依赖：systemctl list-dependencies xxx，依赖的 unit 失败会连带失败；network-online.target 未就绪是常见原因。\n4. 看配置：ExecStart 路径是否存在、权限是否正确、Environment 里的变量有没有缺。\n5. 看端口与资源：ss -tlnp 是否有别的进程占了端口；ulimit -n 是否太小。\n6. 修复后 systemctl daemon-reload 再启动，确认 systemctl is-enabled 是 enabled，避免重启后又没了。"
+  },
+  {
+    "title": "磁盘有空间但写不进去：inode 耗尽排查",
+    "deviceType": "server",
+    "faultCategory": "disk",
+    "docType": "manual",
+    "platform": "LINUX",
+    "source": "内网运维沉淀",
+    "content": "现象：df -h 显示还有空间，写入却报 No space left on device。\n1. 先看 inode：df -i，IUse% 接近 100% 就是 inode 用尽。\n2. 找目录：for d in /*; do echo $d; find $d -xdev -type f | wc -l; done，逐层缩小到具体目录。\n3. 常见来源：/var/spool/postfix、/var/lib/php/sessions、应用自己生成的小文件、日志轮转后的空文件。\n4. 处理：清理过期小文件；长期方案是调整应用写入策略或迁移到独立分区。\n5. 注意 rm 后空间不会立刻释放，被进程占用的文件要 lsof | grep deleted 找到进程后重启服务。"
+  },
+  {
+    "title": "内存看着很满：page cache 与真实 OOM 的区分",
+    "deviceType": "server",
+    "faultCategory": "mem",
+    "docType": "manual",
+    "platform": "LINUX",
+    "source": "内网运维沉淀",
+    "content": "现象：free -m 显示 available 很少，但业务没报错，或者反过来进程被杀。\n1. 看 available 而不是 free：free -m 第二行的 available 才是可用内存，buff/cache 可回收。\n2. 判断是否真 OOM：dmesg -T | grep -i 'oom\\|killed process'，有记录才是内核杀进程。\n3. 找占用：ps aux --sort=-rss | head -10；容器环境看 docker stats。\n4. 常见原因：JVM 堆设置过大、缓存无上限、连接池泄漏、大文件读取未流式处理。\n5. 处理：调小堆或加 swap 只能缓解，根因要看进程的常驻内存增长曲线；OOM 频发时给关键服务配 systemd 的 MemoryMax 做隔离。"
+  },
+  {
+    "title": "服务器 SSH 无法登录排查",
+    "deviceType": "server",
+    "faultCategory": "network",
+    "docType": "manual",
+    "platform": "LINUX",
+    "source": "内网运维沉淀",
+    "content": "现象：ssh 连接被拒绝、超时，或密码正确仍被拒。\n1. 分两层看：网络通不通（ping、telnet IP 22），以及 sshd 是否在跑（systemctl status sshd、ss -tlnp | grep :22）。\n2. 权限拒绝：看 /var/log/secure 或 journalctl -u sshd，常见是 PermitRootLogin 被关、AllowUsers 限制、密钥权限不是 600。\n3. 密码正确仍失败：检查 /etc/pam.d/sshd、账号是否被锁定（passwd -S），以及磁盘满导致无法写 session。\n4. 连接超时：防火墙 firewalld/iptables、云安全组、fail2ban 误封。\n5. 应急：控制台登录后先看 sshd 配置改了什么，改完 systemctl reload sshd 而不是 restart，避免把自己踢下线。"
+  },
+  {
+    "title": "定时任务不执行排查（cron 与 systemd timer）",
+    "deviceType": "server",
+    "faultCategory": "system",
+    "docType": "manual",
+    "platform": "LINUX",
+    "source": "内网运维沉淀",
+    "content": "现象：脚本手工能跑，定时任务不生效。\n1. 查是否真的触发：journalctl -u crond -n 100；systemd timer 用 systemctl list-timers --all。\n2. 查环境：cron 的 PATH 很短，脚本里用绝对路径，或者在 crontab 里显式 export PATH。\n3. 查权限：/etc/cron.d 文件权限与格式（多一个用户名列就会静默失败），脚本要可执行。\n4. 查时区：date 与 timedatectl 是否一致，容器里常是 UTC。\n5. 查重叠：上一次没跑完，锁文件挡住了下一次；日志里看是否只有一次记录。"
+  },
+  {
+    "title": "磁盘 I/O error 与文件系统只读应急处理",
+    "deviceType": "server",
+    "faultCategory": "disk",
+    "docType": "manual",
+    "platform": "LINUX",
+    "source": "内网运维沉淀",
+    "content": "现象：dmesg 出现 I/O error、EXT4-fs error，挂载点变成只读，写操作全部失败。\n1. 确认：dmesg -T | tail -50 看块设备报错；mount | grep ro 看是否 remount 成只读。\n2. 保护数据：立即停止写入型业务，避免扩大损坏。\n3. 查硬件：smartctl -a /dev/sdX 看重映射扇区与自检结果；云主机提工单查宿主机磁盘。\n4. 修复：umount 后 fsck -y /dev/sdX（务必先确认没有进程占用），修复前先做快照或备份。\n5. 复盘：同批次磁盘的 SMART 一起看，避免逐个踩雷；文件系统建议开启定期自检。"
+  }
+]

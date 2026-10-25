@@ -49,8 +49,9 @@ public class AssistController {
 
         long start = System.currentTimeMillis();
         // 截图 OCR 出来的文字当作“日志”喂给诊断流程；用户的问题作为“现象描述”
+        // 极简问答页面向普通员工，多为桌面问题：平台交给后端按内容自动识别
         DiagnoseService.DiagnoseResponse r = diagnoseService.diagnose(
-                title, "app", "app", question, imageText.isEmpty() ? null : imageText);
+                title, "app", "app", question, imageText.isEmpty() ? null : imageText, null);
         long cost = System.currentTimeMillis() - start;
 
         // ---- 精简输出：只保留普通用户需要看的字段 ----

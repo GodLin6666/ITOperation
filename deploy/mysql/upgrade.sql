@@ -73,3 +73,38 @@ WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'a
 SELECT COUNT(*) AS self_heal_event_ready
 FROM information_schema.TABLES
 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'self_heal_event';
+
+-- ------------------------------------------------------------
+-- 3. 双平台支持：知识条目与故障单增加 platform
+--    WINDOWS 桌面 / LINUX 服务器 / ANY 通用
+-- ------------------------------------------------------------
+SET @col_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'kb_document'
+      AND COLUMN_NAME = 'platform'
+);
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE kb_document ADD COLUMN platform VARCHAR(16) NOT NULL DEFAULT ''ANY'' COMMENT ''WINDOWS/LINUX/ANY'' AFTER doc_type',
+    'SELECT ''kb_document.platform 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @col_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'fault_ticket'
+      AND COLUMN_NAME = 'platform'
+);
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE fault_ticket ADD COLUMN platform VARCHAR(16) COMMENT ''WINDOWS/LINUX/ANY'' AFTER fault_category',
+    'SELECT ''fault_ticket.platform 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 老数据的平台统一按通用处理，避免被平台过滤掉（幂等）
+UPDATE kb_document SET platform = 'ANY' WHERE platform IS NULL OR platform = '';

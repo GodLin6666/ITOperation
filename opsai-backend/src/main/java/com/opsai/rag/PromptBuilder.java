@@ -37,10 +37,20 @@ public class PromptBuilder {
             """;
 
     public String build(String preprocessSummary, List<Retriever.Hit> hits) {
+        return build(preprocessSummary, hits, Platform.ANY);
+    }
+
+    /** 带平台的提示词：多一段平台要点，告诉模型该往哪个方向取证 */
+    public String build(String preprocessSummary, List<Retriever.Hit> hits, String platform) {
         StringBuilder sb = new StringBuilder();
         sb.append("【用户故障信息】\n").append(preprocessSummary).append("\n\n");
+        sb.append("【故障平台】").append(Platform.label(platform)).append("\n\n");
         sb.append("【参考资料】\n");
         appendHits(sb, hits);
+        String hints = Platform.hints(platform);
+        if (!hints.isBlank()) {
+            sb.append(hints).append("\n");
+        }
         sb.append("请严格按 JSON 结构输出诊断结果。");
         return sb.toString();
     }
@@ -64,6 +74,7 @@ public class PromptBuilder {
         int no = 1;
         for (Retriever.Hit hit : hits) {
             sb.append("[资料").append(no++).append("] 标题：").append(hit.title())
+                    .append("｜平台：").append(Platform.label(hit.platform()))
                     .append("｜设备类型：").append(hit.deviceType())
                     .append("｜故障类别：").append(hit.category())
                     .append("｜相似度：").append(String.format("%.2f", hit.score())).append("\n")

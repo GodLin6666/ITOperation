@@ -28,11 +28,19 @@ public class Retriever {
 
     /** 一次检索命中 */
     public record Hit(Long chunkId, Long docId, String title, String deviceType,
-                      String category, String content, double score) {
+                      String category, String content, double score, String platform) {
     }
 
-    /** 用查询向量在知识库里找最相似的 topK 块 */
+    /** 用查询向量在知识库里找最相似的 topK 块（不区分平台） */
     public List<Hit> search(double[] queryVec, int topK, double minScore) {
+        return search(queryVec, topK, minScore, Platform.ANY);
+    }
+
+    /**
+     * 按平台检索：通用知识（ANY）对所有平台可见，专用知识只给对应平台。
+     * 这样 Windows 桌面问题不会检索到一堆只有 Linux 才有的命令。
+     */
+    public List<Hit> search(double[] queryVec, int topK, double minScore, String platform) {
         List<KbChunk> chunks = chunkRepo.findAll();
         if (chunks.isEmpty()) return List.of();
 
@@ -45,10 +53,12 @@ public class Retriever {
             KbDocument doc = docs.get(chunk.getDocId());
             if (doc == null) continue;
             if (doc.getStatus() == null || doc.getStatus() != 1) continue;   // 只检索已发布的知识
+            if (!Platform.matches(doc.getPlatform(), platform)) continue;   // 平台不匹配的跳过
             double score = cosine(queryVec, parse(chunk.getEmbedding()));
             if (score >= minScore) {
                 hits.add(new Hit(chunk.getId(), doc.getId(), doc.getTitle(),
-                        doc.getDeviceType(), doc.getFaultCategory(), chunk.getContent(), score));
+                        doc.getDeviceType(), doc.getFaultCategory(), chunk.getContent(), score,
+                        Platform.normalize(doc.getPlatform())));
             }
         }
         hits.sort(Comparator.comparingDouble(Hit::score).reversed());

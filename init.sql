@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS kb_document (
   device_type    VARCHAR(50)  NOT NULL COMMENT '设备类型：server/db/network/middleware/app',
   fault_category VARCHAR(50)  NOT NULL COMMENT '故障类别：cpu/mem/disk/network/db/middleware',
   doc_type       VARCHAR(20)  NOT NULL DEFAULT 'case' COMMENT 'case历史案例 manual排查手册 solution处置方案',
+  platform       VARCHAR(16)  NOT NULL DEFAULT 'ANY' COMMENT '适用平台：WINDOWS桌面 / LINUX服务器 / ANY通用',
   content        MEDIUMTEXT   NOT NULL COMMENT '正文',
   source         VARCHAR(200) COMMENT '来源',
   status         TINYINT      NOT NULL DEFAULT 0 COMMENT '0待审核 1已发布 2已驳回',
@@ -23,7 +24,7 @@ CREATE TABLE IF NOT EXISTS kb_document (
   create_by      BIGINT,
   create_time    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_time    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  KEY idx_doc_filter (status, device_type, fault_category)
+  KEY idx_doc_filter (status, platform, device_type, fault_category)
 ) ENGINE=InnoDB COMMENT='知识条目';
 
 -- 表2：知识分块 + 向量（RAG 的核心）
@@ -46,6 +47,7 @@ CREATE TABLE IF NOT EXISTS fault_ticket (
   title          VARCHAR(200) NOT NULL,
   device_type    VARCHAR(50),
   fault_category VARCHAR(50),
+  platform       VARCHAR(16) COMMENT '故障平台：WINDOWS / LINUX / ANY',
   phenomenon     TEXT COMMENT '现象描述',
   log_text       MEDIUMTEXT COMMENT '粘贴的日志原文',
   log_file       VARCHAR(255) COMMENT '上传的日志文件路径',

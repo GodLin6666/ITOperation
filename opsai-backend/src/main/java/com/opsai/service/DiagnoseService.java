@@ -8,6 +8,7 @@ import com.opsai.config.OpsAiProps;
 import com.opsai.entity.DiagnoseRecord;
 import com.opsai.entity.FaultTicket;
 import com.opsai.preprocess.LogPreprocessor;
+import com.opsai.rag.Platform;
 import com.opsai.rag.PromptBuilder;
 import com.opsai.rag.Retriever;
 import com.opsai.repo.DiagnoseRecordRepository;
@@ -44,7 +45,14 @@ public class DiagnoseService {
     /** 一次完整诊断：建单 -> 预处理 -> 检索 -> 生成 -> 留痕 */
     @Transactional
     public DiagnoseResponse diagnose(String title, String deviceType, String faultCategory,
-                                     String phenomenon, String logText) throws Exception {
+                                     String phenomenon, String logText, String platform) throws Exception {
+
+        // 平台没传就按现象和日志猜一个，猜不出按通用处理
+        String os = Platform.normalize(platform);
+        if (Platform.ANY.equals(os)) {
+            String guessed = Platform.detect(phenomenon, logText);
+            if (!Platform.ANY.equals(guessed)) os = guessed;
+        }
 
         // 第 0 步：故障单入库
         FaultTicket ticket = new FaultTicket();
@@ -52,6 +60,7 @@ public class DiagnoseService {
         ticket.setTitle(title == null || title.isBlank() ? "未命名故障" : title);
         ticket.setDeviceType(deviceType);
         ticket.setFaultCategory(faultCategory);
+        ticket.setPlatform(os);
         ticket.setPhenomenon(phenomenon);
         ticket.setLogText(logText);
         ticket.setStatus(0);
@@ -64,10 +73,10 @@ public class DiagnoseService {
         // 第 2 步：向量化 + 检索
         double[] queryVec = ollama.embed(pre.summary());
         List<Retriever.Hit> hits = retriever.search(queryVec,
-                props.getRag().getTopK(), props.getRag().getMinScore());
+                props.getRag().getTopK(), props.getRag().getMinScore(), os);
 
         // 第 3 步：拼提示词 + 让本地模型生成
-        String prompt = promptBuilder.build(pre.summary(), hits);
+        String prompt = promptBuilder.build(pre.summary(), hits, os);
         OllamaClient.StreamResult result = ollama.chatStream(PromptBuilder.SYSTEM, prompt, null);
 
         JsonNode answer = extractJson(result.text());
@@ -98,7 +107,7 @@ public class DiagnoseService {
         return new DiagnoseResponse(ticket.getId(), answer,
                 pre.keywords(), pre.templates(), hits,
                 result.firstTokenMs(), result.costMs(),
-                pre.rawLineCount(), pre.usedLineCount());
+                pre.rawLineCount(), pre.usedLineCount(), os);
     }
 
     /**
@@ -117,7 +126,7 @@ public class DiagnoseService {
         String query = (ticket.getPhenomenon() == null ? "" : ticket.getPhenomenon()) + "\n" + question;
         double[] queryVec = ollama.embed(query);
         List<Retriever.Hit> hits = retriever.search(queryVec,
-                props.getRag().getTopK(), props.getRag().getMinScore());
+                props.getRag().getTopK(), props.getRag().getMinScore(), ticket.getPlatform());
 
         String prompt = promptBuilder.buildFollowUp(question, last.getAnswerJson(), hits);
         // 追问要更灵活一点，temperature 稍微调高
@@ -208,7 +217,8 @@ public class DiagnoseService {
                                    List<LogPreprocessor.Template> templates,
                                    List<Retriever.Hit> hits,
                                    long firstTokenMs, long costMs,
-                                   int rawLineCount, int usedLineCount) {
+                                   int rawLineCount, int usedLineCount,
+                                   String platform) {
     }
 
     public record FollowUpResponse(Long ticketId, String question, String answer,

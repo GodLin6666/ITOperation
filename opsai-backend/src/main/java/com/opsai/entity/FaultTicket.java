@@ -24,6 +24,10 @@ public class FaultTicket {
     private String deviceType;
     private String faultCategory;
 
+    /** 本次故障所属平台：WINDOWS / LINUX / ANY，诊断时按它过滤知识 */
+    @Column(length = 16)
+    private String platform;
+
     @Column(columnDefinition = "TEXT")
     private String phenomenon;
 

@@ -7,13 +7,22 @@ const loading = ref(false)
 const result = ref(null)
 const form = ref({
   title: '',
+  platform: 'auto',
   deviceType: 'db',
   faultCategory: 'db',
   phenomenon: '',
   logText: ''
 })
 
+// auto 交给后端按日志特征判断；选错平台会过滤掉另一边的知识，所以默认自动
+const platformOptions = [
+  { label: '自动识别', value: 'auto' },
+  { label: 'Windows 桌面', value: 'windows' },
+  { label: 'Linux 服务器', value: 'linux' }
+]
+
 const deviceTypes = [
+  { label: '桌面电脑', value: 'desktop' },
   { label: '服务器', value: 'server' },
   { label: '数据库', value: 'db' },
   { label: '网络', value: 'network' },
@@ -40,6 +49,7 @@ const chat = ref([]) // { role:'user'|'ai', text }
 /* ---------- 演示用的一键填充 ---------- */
 const sample = {
   title: '订单服务连接数据库超时',
+  platform: 'linux',
   deviceType: 'db',
   faultCategory: 'db',
   phenomenon: '订单服务从 10:12 开始大量报错，接口 500，重启无效',
@@ -47,6 +57,33 @@ const sample = {
 2026-10-09 10:12:32 ERROR [order-service] java.sql.SQLNonTransientConnectionException: Data source rejected establishment of connection, message from server: "Too many connections"
 2026-10-09 10:12:33 WARN  [order-service] HikariPool-1 - Pool stats (total=50, active=50, idle=0, waiting=12)
 2026-10-09 10:12:35 ERROR [order-service] Timeout waiting for connection from pool`
+}
+
+/* ---------- 桌面场景的一键填充 ---------- */
+const desktopSample = {
+  title: '员工电脑开机后无法打印且共享盘打不开',
+  platform: 'windows',
+  deviceType: 'desktop',
+  faultCategory: 'system',
+  phenomenon: '财务部电脑今早开机后打印机显示脱机，访问共享盘提示找不到网络路径，重启过两次无效',
+  logText: [
+    '2026-10-23 08:41:12 System   ID=7000  Print Spooler 服务因下列错误而无法启动: 拒绝访问',
+    '2026-10-23 08:41:30 System   ID=7031  Print Spooler 服务意外终止，将尝试重启',
+    '2026-10-23 08:42:05 System   ID=5719  此计算机无法与域控制器建立安全会话',
+    '2026-10-23 08:43:11 Application ID=1000  explorer.exe 崩溃，模块名称: ntdll.dll'
+  ].join('\n')
+}
+
+function platformLabel(p) {
+  if (!p || p === 'ANY') return '通用'
+  if (p === 'LINUX') return 'Linux 服务器'
+  if (p === 'WINDOWS') return 'Windows 桌面'
+  return p
+}
+
+function fillDesktopSample() {
+  form.value = { ...desktopSample }
+  ElMessage.success('已填入桌面故障示例，可以直接点「开始诊断」')
 }
 
 function fillSample() {
@@ -161,25 +198,35 @@ const fmtMs = (v) => (v == null ? '-' : v + ' ms')
       <template #header>
         <div class="card-head">
           <span>故障信息录入</span>
-          <el-button link type="primary" @click="fillSample">填入示例日志</el-button>
+          <span>
+            <el-button link type="primary" @click="fillSample">填入服务器示例</el-button>
+            <el-button link type="primary" @click="fillDesktopSample">填入桌面示例</el-button>
+          </span>
         </div>
       </template>
 
       <el-form label-position="top">
         <el-row :gutter="12">
-          <el-col :xs="24" :sm="12" :md="8">
+          <el-col :xs="24" :sm="12" :md="6">
             <el-form-item label="故障标题">
               <el-input v-model="form.title" placeholder="例如：订单服务连接数据库超时" />
             </el-form-item>
           </el-col>
           <el-col :xs="12" :sm="6" :md="4">
+            <el-form-item label="平台">
+              <el-select v-model="form.platform" style="width: 100%">
+                <el-option v-for="p in platformOptions" :key="p.value" :label="p.label" :value="p.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="12" :sm="6" :md="3">
             <el-form-item label="设备类型">
               <el-select v-model="form.deviceType" style="width: 100%">
                 <el-option v-for="d in deviceTypes" :key="d.value" :label="d.label" :value="d.value" />
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :xs="12" :sm="6" :md="4">
+          <el-col :xs="12" :sm="6" :md="3">
             <el-form-item label="故障类别">
               <el-select v-model="form.faultCategory" style="width: 100%">
                 <el-option v-for="c in categories" :key="c.value" :label="c.label" :value="c.value" />
@@ -222,6 +269,11 @@ const fmtMs = (v) => (v == null ? '-' : v + ' ms')
 
         <el-descriptions :column="4" border size="small" class="mt-s">
           <el-descriptions-item label="故障单号">{{ result.ticketId }}</el-descriptions-item>
+          <el-descriptions-item label="识别平台">
+            <el-tag size="small" :type="result.platform === 'LINUX' ? 'success' : (result.platform === 'WINDOWS' ? 'warning' : 'info')">
+              {{ platformLabel(result.platform) }}
+            </el-tag>
+          </el-descriptions-item>
           <el-descriptions-item label="首字耗时">
             <el-tag :type="result.firstTokenMs <= 5000 ? 'success' : 'warning'" size="small">
               {{ fmtMs(result.firstTokenMs) }}

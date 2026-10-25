@@ -40,6 +40,8 @@ public class KbService {
         if (doc.getVersion() == null) doc.setVersion(1);
         if (doc.getChunkCount() == null) doc.setChunkCount(0);
         if (doc.getDocType() == null || doc.getDocType().isBlank()) doc.setDocType("manual");
+        // 没写平台的按通用处理，避免老数据被平台过滤掉
+        doc.setPlatform(com.opsai.rag.Platform.normalize(doc.getPlatform()));
         LocalDateTime now = LocalDateTime.now();
         if (doc.getCreateTime() == null) doc.setCreateTime(now);
         doc.setUpdateTime(now);

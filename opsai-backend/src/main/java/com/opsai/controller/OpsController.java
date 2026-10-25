@@ -46,7 +46,7 @@ public class OpsController {
     @PostMapping("/diagnose")
     public DiagnoseService.DiagnoseResponse diagnose(@RequestBody DiagnoseRequest req) throws Exception {
         return diagnoseService.diagnose(req.title(), req.deviceType(),
-                req.faultCategory(), req.phenomenon(), req.logText());
+                req.faultCategory(), req.phenomenon(), req.logText(), req.platform());
     }
 
     /** 追问：在已有诊断结果上继续对话 */
@@ -58,7 +58,7 @@ public class OpsController {
     }
 
     public record DiagnoseRequest(String title, String deviceType, String faultCategory,
-                                  String phenomenon, String logText) {
+                                  String phenomenon, String logText, String platform) {
     }
 
     public record FollowUpRequest(Long ticketId, String question) {

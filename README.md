@@ -33,6 +33,7 @@
 | 👥 **角色分离** | 普通用户只看到极简问答页；运维人员有完整管理台和操作日志 |
 | 🩺 **自愈能力** | 定时巡检指标 → 自动诊断 → **管理员确认后**执行白名单动作 → 复检验证 |
 | 🏢 **企业域认证** | 支持 AD / OpenLDAP 域账号登录，按安全组自动映射角色，不另存密码 |
+| 🖥️ **双平台** | Windows 桌面问题与 Linux 服务器问题分开检索：桌面不会检索到 Linux 命令，服务器也不会拿到桌面话术 |
 | 📄 **处理单导出** | 一次诊断的过程可导出为 Word 文档 |
 | 🐳 **一键部署** | `docker compose up -d --build` 起全套服务 |
 | 📱 **响应式** | 375px 手机屏也能正常使用 |
@@ -128,6 +129,58 @@
         |
         v
 落库：fault_ticket + diagnose_record（全过程留痕）--> 可统计、可导出处理单
+```
+
+---
+
+## 双平台支持（Windows 桌面 / Linux 服务器）
+
+企业里的运维问题分两摊：员工电脑的桌面故障，和服务器上的系统故障。两者排查手法差别很大——
+Windows 看事件查看器 ID、服务依赖、组策略；Linux 看 systemd 状态、journalctl、OOM killer、inode。
+知识混在一起检索时，经常把 Linux 命令喂给桌面问题，所以系统加了平台维度。
+
+| 层面 | 做法 |
+| --- | --- |
+| 知识条目 | `kb_document.platform`：`WINDOWS` / `LINUX` / `ANY`，通用条目对所有平台可见 |
+| 故障单 | `fault_ticket.platform` 记录本次判定结果，追问时沿用同一平台 |
+| 检索 | `Retriever.search(..., platform)` 先按平台过滤再算余弦，`ANY` 永远参与 |
+| 判定 | 前端选「自动识别」时，后端按日志特征打分（`Platform.detect`），判不出来按通用处理 |
+| 提示词 | 按平台追加【平台要点】：Windows 的事件 ID 清单、Linux 的命令清单 |
+| 前端 | 录入页有平台下拉，结果页显示识别到的平台 |
+
+### 采集脚本
+
+让用户在员工电脑或服务器上跑一条命令，把输出粘回录入页，比让他们自己翻事件查看器、翻日志快得多。
+
+| 场景 | 脚本 | 采集内容 |
+| --- | --- | --- |
+| Windows 桌面 | `scripts/collect-windows.ps1` | 系统版本、启动时间、CPU/内存/磁盘、占用最高的进程、自动启动但未运行的服务、近 24 小时系统与应用日志错误（带事件 ID）、网络配置、打印与共享服务状态 |
+| Linux 服务器 | `scripts/collect-linux.sh` | 内核与发行版、负载、内存、磁盘空间与 inode、失败的 systemd 单元、journalctl 错误、dmesg 中的 I/O 与 OOM 线索、CPU/内存占用最高的进程、监听端口、句柄上限、时间同步状态 |
+
+```powershell
+# Windows 员工机（只读采集，不改系统）
+powershell -ExecutionPolicy Bypass -File scripts\collect-windows.ps1
+
+# Linux 服务器
+bash scripts/collect-linux.sh > /tmp/linux-info.txt
+```
+
+### 知识种子
+
+| 文件 | 条数 | 平台 |
+| --- | --- | --- |
+| `kb-seed.json` | 33 | 服务器 / 数据库 / 中间件标 `LINUX`，应用与网络标 `ANY` |
+| `kb-desktop.json` | 12 | `WINDOWS` |
+| `kb-linux.json` | 6 | `LINUX`（systemd、inode、page cache 与 OOM、SSH、定时任务、磁盘 I/O 只读） |
+| `kb-windows.json` | 6 | `WINDOWS`（蓝屏、开机登录慢、打印机、共享盘、系统盘、远程桌面） |
+
+### 老库升级
+
+已有的库需要补两个字段，执行一次即可（幂等）：
+
+```bash
+docker cp deploy/mysql/upgrade.sql opsai-mysql:/tmp/upgrade.sql
+docker exec opsai-mysql sh -c "mysql -uroot -p密码 --default-character-set=utf8mb4 opsai < /tmp/upgrade.sql"
 ```
 
 ---
